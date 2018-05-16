@@ -30,6 +30,7 @@ import (
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"github.com/mitchellh/mapstructure"
+	"github.com/hashicorp/vault/physical"
 )
 
 var (
@@ -727,6 +728,37 @@ func NewSystemBackend(core *Core, logger log.Logger) *SystemBackend {
 				HelpSynopsis:    strings.TrimSpace(sysHelp["policy"][0]),
 				HelpDescription: strings.TrimSpace(sysHelp["policy"][1]),
 			},
+
+			&framework.Path{
+				Pattern: "cache(/(?P<path>.+)?)?",
+				Fields: map[string]*framework.FieldSchema{
+					"path": &framework.FieldSchema{
+						Type:        framework.TypeString,
+						Description: strings.TrimSpace(sysHelp["cache-path"][0]),
+					},
+				},
+
+				Callbacks: map[logical.Operation]framework.OperationFunc{
+					logical.ReadOperation:   b.handleCacheRead,
+					logical.ListOperation: b.handleCacheList,
+					logical.DeleteOperation: b.handleCacheDelete,
+				},
+
+				HelpSynopsis:    strings.TrimSpace(sysHelp["cache"][0]),
+				HelpDescription: strings.TrimSpace(sysHelp["cache"][1]),
+			},
+			//&framework.Path{
+			//	Pattern: "cache/?$",
+			//
+			//	Callbacks: map[logical.Operation]framework.OperationFunc{
+			//		logical.ReadOperation:   b.handleCacheList,
+			//		logical.ListOperation: b.handleCacheList,
+			//		logical.DeleteOperation: b.handleCacheDelete,
+			//	},
+			//
+			//	HelpSynopsis:    strings.TrimSpace(sysHelp["cache"][0]),
+			//	HelpDescription: strings.TrimSpace(sysHelp["cache"][1]),
+			//},
 
 			&framework.Path{
 				Pattern:         "seal-status$",
@@ -3753,6 +3785,91 @@ func checkListingVisibility(visibility ListingVisiblityType) error {
 	return nil
 }
 
+func (b *SystemBackend) handleCacheRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	if b.Core.cachingDisabled {
+		return &logical.Response{Warnings:[]string{"caching is disabled."}}, nil
+	}
+
+	var path string
+	if raw, _, err := data.GetOkErr("path") ;err != nil {
+		return logical.ErrorResponse(err.Error()), logical.ErrInvalidRequest
+	} else if str, ok := raw.(string); ok{
+		path = str
+	} else {
+		return logical.ErrorResponse("path is not a string"), logical.ErrInvalidRequest
+	}
+
+	if !b.System().SudoPrivilege(ctx, req.MountPoint + req.Path, req.ClientToken) {
+		return logical.ErrorResponse("sudo is required to read cache"), logical.ErrPermissionDenied
+	}
+
+	for _, p := range protectedPaths {
+		if strings.HasPrefix(path, p) {
+			err := fmt.Sprintf("cannot read '%s'", path)
+			return logical.ErrorResponse(err), logical.ErrInvalidRequest
+		}
+	}
+
+	if physicalCache, ok := b.Core.physicalCache.(*physical.Cache); !ok {
+		return nil, fmt.Errorf("physical backend is not a cache")
+	} else {
+		encryptedEntry, err := physicalCache.Peek(ctx, path)
+		if err != nil {
+			return logical.ErrorResponse(err.Error()), logical.ErrInvalidRequest
+		} else if encryptedEntry == nil {
+			return nil, nil
+		}
+		value := encryptedEntry.Value
+		if b.Core.rawEnabled && !strings.HasPrefix(path, "core/auth") {
+			value, err = b.Core.barrier.Decrypt(ctx, path, value)
+			if err != nil {
+				return nil, err
+			}
+			if decompressed, _, err := compressutil.Decompress(value); err != nil {
+				return handleErrorNoReadOnlyForward(err)
+			} else if decompressed != nil {
+				value = decompressed
+			}
+			return &logical.Response{
+				Data:     map[string]interface{}{"value": string(value)},
+			}, nil
+		}
+		return &logical.Response{
+			Data:     map[string]interface{}{"value": value},
+		}, nil
+	}
+}
+
+func (b *SystemBackend) handleCacheList(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	if b.Core.cachingDisabled {
+		return logical.ErrorResponse("caching is disabled"), nil
+	}
+	prefix := data.Get("path").(string)
+	if !b.System().SudoPrivilege(ctx, req.MountPoint + req.Path, req.ClientToken) {
+		return logical.ErrorResponse("sudo is required to read cache"), logical.ErrPermissionDenied
+	}
+	if physicalCache, ok := b.Core.physicalCache.(*physical.Cache); !ok {
+		return nil, fmt.Errorf("physical backend is not a cache")
+	} else {
+		keys, err := physicalCache.Keys(ctx, prefix)
+		if err != nil {
+			return nil, err
+		}
+		return &logical.Response{
+			Data:     map[string]interface{}{"keys": keys},
+		}, nil
+	}
+}
+
+func (b *SystemBackend) handleCacheDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	if b.Core.cachingDisabled {
+		return logical.ErrorResponse("caching is disabled"), nil
+	}
+
+	b.Core.physicalCache.Purge(ctx)
+	return &logical.Response{Data: map[string]interface{}{"success": true}}, nil
+}
+
 const sysHelpRoot = `
 The system backend is built-in to Vault and cannot be remounted or
 unmounted. It contains the paths that are used to configure Vault itself
@@ -4348,6 +4465,14 @@ This path responds to the following HTTP methods.
 	},
 	"raw": {
 		"Write, Read, and Delete data directly in the Storage backend.",
+		"",
+	},
+	"cache": {
+		"Read or purge cache if enabled.",
+		`This path respond to the following HTTP methods: GET, LIST, DELETE`,
+	},
+	"cache-path": {
+		"The path or the prefix to be returned for GET/LIST operations.",
 		"",
 	},
 	"internal-ui-mounts": {

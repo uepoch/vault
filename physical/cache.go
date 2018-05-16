@@ -8,6 +8,8 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/vault/helper/locksutil"
 	"github.com/hashicorp/vault/helper/pathmanager"
+	"fmt"
+	"strings"
 )
 
 const (
@@ -180,6 +182,43 @@ func (c *Cache) List(ctx context.Context, prefix string) ([]string, error) {
 	// reason we don't lock as we can't reasonably know which locks to readlock
 	// ahead of time.
 	return c.backend.List(ctx, prefix)
+}
+
+// Allow to inspect a cache entry if one is available without touching the frequency or date
+func (c *Cache) Peek(ctx context.Context, key string) (*Entry, error) {
+
+	lock := locksutil.LockForKey(c.locks, key)
+	lock.Lock()
+	defer lock.Unlock()
+
+	if raw, ok := c.lru.Peek(key); ok {
+		if raw == nil {
+			return nil, nil
+		}
+		return raw.(*Entry), nil
+	}
+	return nil, nil
+}
+
+// Allow to all keys containing a prefix in the cache
+func (c *Cache) Keys(ctx context.Context, prefix string) ([]string, error) {
+	// Since we don't know what we will return, we lock everything
+	for _, lock := range c.locks {
+		lock.Lock()
+		defer lock.Unlock()
+	}
+	keys := c.lru.Keys()
+	ret := make([]string, 0,  len(keys))
+	for _, key := range keys {
+		if str, ok := key.(string); ok{
+			if strings.HasPrefix(str, prefix) {
+				ret = append(ret, str)
+			}
+		} else {
+			return nil, fmt.Errorf("error while casting key %v", key)
+		}
+	}
+	return ret, nil
 }
 
 func (c *TransactionalCache) Transaction(ctx context.Context, txns []*TxnEntry) error {
