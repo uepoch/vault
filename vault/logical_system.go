@@ -747,19 +747,6 @@ func NewSystemBackend(core *Core, logger log.Logger) *SystemBackend {
 				HelpSynopsis:    strings.TrimSpace(sysHelp["cache"][0]),
 				HelpDescription: strings.TrimSpace(sysHelp["cache"][1]),
 			},
-			//&framework.Path{
-			//	Pattern: "cache/?$",
-			//
-			//	Callbacks: map[logical.Operation]framework.OperationFunc{
-			//		logical.ReadOperation:   b.handleCacheList,
-			//		logical.ListOperation: b.handleCacheList,
-			//		logical.DeleteOperation: b.handleCacheDelete,
-			//	},
-			//
-			//	HelpSynopsis:    strings.TrimSpace(sysHelp["cache"][0]),
-			//	HelpDescription: strings.TrimSpace(sysHelp["cache"][1]),
-			//},
-
 			&framework.Path{
 				Pattern:         "seal-status$",
 				HelpSynopsis:    strings.TrimSpace(sysHelp["seal-status"][0]),
@@ -3820,7 +3807,7 @@ func (b *SystemBackend) handleCacheRead(ctx context.Context, req *logical.Reques
 			return nil, nil
 		}
 		value := encryptedEntry.Value
-		if b.Core.rawEnabled && !strings.HasPrefix(path, "core/auth") {
+		if b.Core.rawEnabled {
 			value, err = b.Core.barrier.Decrypt(ctx, path, value)
 			if err != nil {
 				return nil, err
