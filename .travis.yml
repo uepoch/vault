@@ -22,7 +22,7 @@ matrix:
 
 cache:
   yarn: true
-
+go_import_path: github.com/hashicorp/vault
 before_install:
   - nvm install 8
   - nvm use 8
@@ -44,5 +44,19 @@ env:
 
 
 script:
-  - make bootstrap
-  - eval $TEST_COMMAND
+- make bootstrap
+- eval $TEST_COMMAND
+before_deploy:
+- make bootstrap
+- make bin
+- (rm -f ./pkg/*.zip ; cd pkg/; for osarch in *; do echo "Building tarball for ${osarch}"; cp ./$osarch/vault* . ; tar -cvf "vault-${TRAVIS_TAG//v/}.${osarch}.tar.gz" ./vault* ../LICENSE ../README.md; rm ./vault ./vault.exe; mv *.tar.gz ../ ; done)
+
+deploy:
+  provider: releases
+  file_glob: true
+  skip_cleanup: true
+  on:
+    tags: true
+  file: "*.tar.gz"
+  api_key:
+    secure: yPTVkh7eYnv78hV40v2eSlS86oTpaeU+gEP7g66uNgN19l5VSxnqQJzVuADT5XG6fM7NWFTFO/vENtVVmfeTxwe2rt892IWK3hpQJ7DaXYhFzFpJlg0jxZw41E+OPiENwlf/6rce7yTxxMo/l0WYpFSEJ0ed8JQx/vu4E331KODj0Cnd4OeBh6h6JA5GgG7C2aMGLl1PYUt5W5oDpJ7KTzafXbkVbFw1vFSFNUuwONEH52NhvwlXG+Y9+OQLMRZPwNx5OHPG1gkBH7s+36Mb9QZzF+RJ9o8Ra4Wo18IzkcOLcg2hO7CeHNrU8MkGVtYvGCIPGSHkc95mL5Gly3ls56caLm4FbgeljEvpBc/FA9LqxkG++rs24W73w1Asnh3BZIvJzCg2YyBY1GBcVCbOMmu/h62hWzph9bwYUFGmHD3/GJSMxAzjXBO/ggXenZ4VulbwQg0r2L114mM4r7zw9GickI+tBfgHSAaBueQicbPyB9PhsqczkmFOlSnZp5h2dXxAGu319avfFJTcscv7R1pIsCPpBmk5sSeiMvjFYWfBTg415UoPxBmruE9RG7h5FwUnfgT2rI4smfFyDtJYatOZYFweTkpW6G/JRT5jD2+AId+mCZdvGUrswK8pI6CTbyR5GL+94PW2xFyC+w+u0yVAdJmonxXoK0mCuB0uhko=
