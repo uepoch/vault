@@ -2143,7 +2143,13 @@
 			"revisionTime": "2018-10-15T14:52:39Z"
 		},
 		{
-			"checksumSHA1": "V8xkqgmP66sq2ZW4QO5wi9a4oZE=",
+			"checksumSHA1": "wsAkYlRRUNx+OAuUOIqdjO7dICM=",
+			"path": "github.com/prometheus/client_golang/prometheus/promhttp",
+			"revision": "1cdba8fdde81f444626530cce66e138d2f68ae1c",
+			"revisionTime": "2017-11-20T17:45:06Z"
+		},
+		{
+			"checksumSHA1": "DvwvOlPNAgRntBzt3b3OSRMS2N4=",
 			"path": "github.com/prometheus/client_model/go",
 			"revision": "5c3871d89910bfb32f5fcab2aa4b9ec68e65a99f",
 			"revisionTime": "2018-07-12T10:51:10Z"

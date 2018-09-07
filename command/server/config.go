@@ -98,7 +98,10 @@ func DevConfig(ha, transactional bool) *Config {
 
 		EnableUI: true,
 
-		Telemetry: &Telemetry{},
+		Telemetry: &Telemetry{
+			PrometheusRetentionTime: 24 * time.Hour,
+			DisableHostname:         true,
+		},
 	}
 
 	switch {
@@ -233,6 +236,13 @@ type Telemetry struct {
 	// DogStatsdTags are the global tags that should be sent with each packet to dogstatsd
 	// It is a list of strings, where each string looks like "my_tag_name:my_tag_value"
 	DogStatsDTags []string `hcl:"dogstatsd_tags"`
+
+	// Prometheus:
+	// PrometheusRetentionTime is the retention time for prometheus metrics if greater than 0.
+	// A value of 0 disable Prometheus support.
+	// Default: 0
+	PrometheusRetentionTime    time.Duration `hcl:-`
+	PrometheusRetentionTimeRaw interface{}   `hcl:"prometheus_retention_time"`
 }
 
 func (s *Telemetry) GoString() string {
@@ -816,5 +826,13 @@ func parseTelemetry(result *Config, list *ast.ObjectList) error {
 	if err := hcl.DecodeObject(&result.Telemetry, item.Val); err != nil {
 		return multierror.Prefix(err, "telemetry:")
 	}
+
+	if result.Telemetry.PrometheusRetentionTimeRaw != nil {
+		var err error
+		if result.Telemetry.PrometheusRetentionTime, err = parseutil.ParseDurationSecond(result.Telemetry.PrometheusRetentionTimeRaw); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
