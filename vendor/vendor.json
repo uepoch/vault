@@ -2013,6 +2013,12 @@
 			"revisionTime": "2018-07-10T22:10:52Z"
 		},
 		{
+			"checksumSHA1": "wsAkYlRRUNx+OAuUOIqdjO7dICM=",
+			"path": "github.com/prometheus/client_golang/prometheus/promhttp",
+			"revision": "1cdba8fdde81f444626530cce66e138d2f68ae1c",
+			"revisionTime": "2017-11-20T17:45:06Z"
+		},
+		{
 			"checksumSHA1": "DvwvOlPNAgRntBzt3b3OSRMS2N4=",
 			"path": "github.com/prometheus/client_model/go",
 			"revision": "99fa1f4be8e564e8a6b613da7fa6f46c9edafc6c",

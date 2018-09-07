@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/armon/go-metrics"
+	metrics "github.com/armon/go-metrics"
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-multierror"
 	sockaddr "github.com/hashicorp/go-sockaddr"
@@ -36,10 +36,12 @@ var (
 // HandlerProperties is used to seed configuration into a vaulthttp.Handler.
 // It's in this package to avoid a circular dependency
 type HandlerProperties struct {
-	Core                  *Core
-	MaxRequestSize        int64
-	MaxRequestDuration    time.Duration
-	DisablePrintableCheck bool
+	Core                         *Core
+	MaxRequestSize               int64
+	MaxRequestDuration           time.Duration
+	DisablePrintableCheck        bool
+	TelemetryMemSink             *metrics.InmemSink
+	TelemetryPrometheusRetention time.Duration
 }
 
 // fetchEntityAndDerivedPolicies returns the entity object for the given entity
