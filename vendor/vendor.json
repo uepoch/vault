@@ -303,26 +303,26 @@
 		{
 			"checksumSHA1": "DUX4pOK9NKSAzC6RRXniLviyByA=",
 			"path": "github.com/armon/go-metrics",
-			"revision": "58588f401c2cc130a7308a52ca3bc6c0a76db04b",
-			"revisionTime": "2018-06-20T21:33:57Z"
+			"revision": "f0300d1749da6fa982027e449ec0c7a145510c3c",
+			"revisionTime": "2018-09-17T15:23:33Z"
 		},
 		{
 			"checksumSHA1": "xCsGGM9TKBogZDfSN536KtQdLko=",
 			"path": "github.com/armon/go-metrics/circonus",
-			"revision": "58588f401c2cc130a7308a52ca3bc6c0a76db04b",
-			"revisionTime": "2018-06-20T21:33:57Z"
+			"revision": "f0300d1749da6fa982027e449ec0c7a145510c3c",
+			"revisionTime": "2018-09-17T15:23:33Z"
 		},
 		{
 			"checksumSHA1": "Dt0n1sSivvvdZQdzc4Hu/yOG+T0=",
 			"path": "github.com/armon/go-metrics/datadog",
-			"revision": "58588f401c2cc130a7308a52ca3bc6c0a76db04b",
-			"revisionTime": "2018-06-20T21:33:57Z"
+			"revision": "f0300d1749da6fa982027e449ec0c7a145510c3c",
+			"revisionTime": "2018-09-17T15:23:33Z"
 		},
 		{
-			"checksumSHA1": "XfPPXw55zKziOWnZbkEGEJ96O9c=",
+			"checksumSHA1": "vxr0X6/jCQ4FkMxdhzUaBEWrFGA=",
 			"path": "github.com/armon/go-metrics/prometheus",
-			"revision": "58588f401c2cc130a7308a52ca3bc6c0a76db04b",
-			"revisionTime": "2018-06-20T21:33:57Z"
+			"revision": "f0300d1749da6fa982027e449ec0c7a145510c3c",
+			"revisionTime": "2018-09-17T15:23:33Z"
 		},
 		{
 			"checksumSHA1": "+9FZihevG7Sm0XLvdER/UpALuy0=",
