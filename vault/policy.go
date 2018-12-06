@@ -221,15 +221,20 @@ func (p *ACLPermissions) Clone() (*ACLPermissions, error) {
 // intermediary set of policies, before being compiled into
 // the ACL
 func ParseACLPolicy(ns *namespace.Namespace, rules string) (*Policy, error) {
-	return parseACLPolicyWithTemplating(ns, rules, false, nil, nil)
+	return parseACLPolicyWithTemplating(ns, rules, nil, nil)
 }
 
 // parseACLPolicyWithTemplating performs the actual work and checks whether we
 // should perform substitutions. If performTemplating is true we know that it
 // is templated so we don't check again, otherwise we check to see if it's a
 // templated policy.
-func parseACLPolicyWithTemplating(ns *namespace.Namespace, rules string, performTemplating bool, entity *identity.Entity, groups []*identity.Group) (*Policy, error) {
+func parseACLPolicyWithTemplating(ns *namespace.Namespace, rules string, entity *identity.Entity, groups []*identity.Group) (*Policy, error) {
 	// Parse the rules
+	rules, templated, err := renderPolicy(rules, entity, groups)
+	if err != nil {
+		return nil, errwrap.Wrapf("failed to render templated policy: {{err}}", err)
+	}
+
 	root, err := hcl.Parse(rules)
 	if err != nil {
 		return nil, errwrap.Wrapf("failed to parse policy: {{err}}", err)
@@ -255,13 +260,14 @@ func parseACLPolicyWithTemplating(ns *namespace.Namespace, rules string, perform
 		Raw:       rules,
 		Type:      PolicyTypeACL,
 		namespace: ns,
+		Templated: templated,
 	}
 	if err := hcl.DecodeObject(&p, list); err != nil {
 		return nil, errwrap.Wrapf("failed to parse policy: {{err}}", err)
 	}
 
 	if o := list.Filter("path"); len(o.Items) > 0 {
-		if err := parsePaths(&p, o, performTemplating, entity, groups); err != nil {
+		if err := parsePaths(&p, o, entity, groups); err != nil {
 			return nil, errwrap.Wrapf("failed to parse policy: {{err}}", err)
 		}
 	}
@@ -269,7 +275,7 @@ func parseACLPolicyWithTemplating(ns *namespace.Namespace, rules string, perform
 	return &p, nil
 }
 
-func parsePaths(result *Policy, list *ast.ObjectList, performTemplating bool, entity *identity.Entity, groups []*identity.Group) error {
+func parsePaths(result *Policy, list *ast.ObjectList, entity *identity.Entity, groups []*identity.Group) error {
 	paths := make([]*PathRules, 0, len(list.Items))
 	for _, item := range list.Items {
 		key := "path"
@@ -277,29 +283,8 @@ func parsePaths(result *Policy, list *ast.ObjectList, performTemplating bool, en
 			key = item.Keys[0].Token.Value().(string)
 		}
 
-		// Check the path
-		if performTemplating {
-			_, templated, err := identity.PopulateString(&identity.PopulateStringInput{
-				String:    key,
-				Entity:    entity,
-				Groups:    groups,
-				Namespace: result.namespace,
-			})
-			if err != nil {
-				continue
-			}
-			key = templated
-		} else {
-			hasTemplating, _, err := identity.PopulateString(&identity.PopulateStringInput{
-				ValidityCheckOnly: true,
-				String:            key,
-			})
-			if err != nil {
-				return errwrap.Wrapf("failed to validate policy templating: {{err}}", err)
-			}
-			if hasTemplating {
-				result.Templated = true
-			}
+		if strings.Contains(key, "<no_value>") {
+			continue
 		}
 
 		valid := []string{
