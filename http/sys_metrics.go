@@ -3,6 +3,7 @@ package http
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -14,8 +15,10 @@ import (
 func handleSysMetrics(inm *metrics.InmemSink, prometheusRetention time.Duration) http.Handler {
 	return http.HandlerFunc(
 		func(res http.ResponseWriter, req *http.Request) {
-			if format := req.URL.Query().Get("format"); format == "prometheus" {
+			format := req.URL.Query().Get("format")
+			accept := req.Header.Get("Accept")
 
+			if format == "prometheus" || strings.HasPrefix(accept, "application/openmetrics-text") {
 				if prometheusRetention.Nanoseconds() == 0 {
 					res.WriteHeader(500)
 					res.Write([]byte("prometheus support is not enabled"))
@@ -23,8 +26,7 @@ func handleSysMetrics(inm *metrics.InmemSink, prometheusRetention time.Duration)
 				}
 
 				handlerOptions := promhttp.HandlerOpts{
-					ErrorHandling:      promhttp.ContinueOnError,
-					DisableCompression: true,
+					ErrorHandling: promhttp.ContinueOnError,
 				}
 
 				handler := promhttp.HandlerFor(prometheus.DefaultGatherer, handlerOptions)

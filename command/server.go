@@ -440,7 +440,7 @@ func (c *ServerCommand) Run(args []string) int {
 				"in a Docker container, provide the IPC_LOCK cap to the container."))
 	}
 
-	InMemMetrics, err := c.setupTelemetry(config)
+	inMemMetrics, err := c.setupTelemetry(config)
 	if err != nil {
 		c.UI.Error(fmt.Sprintf("Error initializing telemetry: %s", err))
 		return 1
@@ -993,7 +993,7 @@ CLUSTER_SYNTHESIS_COMPLETE:
 			MaxRequestSize:               ln.maxRequestSize,
 			MaxRequestDuration:           ln.maxRequestDuration,
 			DisablePrintableCheck:        config.DisablePrintableCheck,
-			TelemetryMemSink:             InMemMetrics,
+			TelemetryMemSink:             inMemMetrics,
 			TelemetryPrometheusRetention: config.Telemetry.PrometheusRetentionTime,
 		})
 
@@ -1576,10 +1576,11 @@ func (c *ServerCommand) setupTelemetry(config *server.Config) (*metrics.InmemSin
 	metrics.DefaultInmemSignal(inm)
 
 	var telConfig *server.Telemetry
-	if config.Telemetry == nil {
-		config.Telemetry = &server.Telemetry{}
+	if config.Telemetry != nil {
+		telConfig = config.Telemetry
+	} else {
+		telConfig = &server.Telemetry{}
 	}
-	telConfig = config.Telemetry
 
 	metricsConf := metrics.DefaultConfig("vault")
 	metricsConf.EnableHostname = !telConfig.DisableHostname
