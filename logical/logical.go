@@ -4,7 +4,6 @@ import (
 	"context"
 
 	log "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/vault/helper/cacheutils"
 )
 
 // BackendType is the type of backend that is being implemented
@@ -128,7 +127,7 @@ type Paths struct {
 	// CacheablesPath are paths that supports getting cached on HTTP level
 	// using ETag, If-Match, If-None-Match headers
 	// If left nil, will use request's uuid as key.
-	CacheablesPaths map[string] cacheutils.HTTPHashFunc
+	CacheablesPaths map[string]func(*Request) string
 }
 
 func (p *Paths) CacheablesPathsKeys() []string {

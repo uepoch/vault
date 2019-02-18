@@ -1,12 +1,15 @@
 package vault
 
 import (
-	"github.com/hashicorp/vault/logical"
-	"github.com/hashicorp/vault/helper/namespace"
-	"strings"
-	"github.com/armon/go-radix"
 	"context"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/armon/go-radix"
 	"github.com/hashicorp/vault/helper/cacheutils"
+	"github.com/hashicorp/vault/helper/namespace"
+	"github.com/hashicorp/vault/logical"
 )
 
 // CachePath checks if the given path support caching
@@ -54,19 +57,29 @@ func (r *Router) CachePath(ctx context.Context, path string) (bool, cacheutils.H
 	return match == remain, hashFunc
 }
 
-func (c *Core) handleCacheRequest(ctx context.Context, req *logical.Request) (*logical.Response, error, bool) {
+func (c *Core) handleCacheRequest(ctx context.Context, req *logical.Request) (*logical.Response, bool, error) {
 	handleCache, hashFunc := c.router.CachePath(ctx, req.Path)
 
 	if !handleCache {
-		return nil, nil, false
+		return nil, false, nil
+	}
+	ce := &cacheutils.CacheEntry{Key: hashFunc(req), Date: time.Now()}
+
+	if req.Operation == logical.DeleteOperation || req.Operation == logical.CreateOperation {
+		return nil, false, nil
+	}
+	shouldContinue, valid, err := cacheutils.CheckPreconditionalHeaders(req, ce, false)
+	if err != nil || shouldContinue {
+		return nil, shouldContinue, err
+	}
+	httpRespCode := http.StatusPreconditionFailed
+	if valid {
+		httpRespCode = http.StatusNotModified
 	}
 
-	switch req.Operation {
-	case logical.DeleteOperation, logical.CreateOperation:
-		return nil, nil, false
-	case logical.ReadOperation, logical.ListOperation:
-
-	case logical.UpdateOperation:
-	}
+	return &logical.Response{
+		Data: map[string]interface{}{
+			logical.HTTPStatusCode: httpRespCode,
+		}}, false, nil
 
 }

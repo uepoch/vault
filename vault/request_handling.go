@@ -662,7 +662,7 @@ func (c *Core) handleRequest(ctx context.Context, req *logical.Request) (retResp
 	}
 
 	// Handle Cached endpoints
-	if resp, routeErr, ok :=  c.handleCacheRequest(ctx, req); ok {
+	if resp, shouldContinue, routeErr := c.handleCacheRequest(ctx, req); !shouldContinue {
 		return resp, nil, routeErr
 	}
 
