@@ -4,6 +4,7 @@ import (
 	"context"
 
 	log "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/vault/helper/cacheutils"
 )
 
 // BackendType is the type of backend that is being implemented
@@ -123,4 +124,17 @@ type Paths struct {
 	// should be seal wrapped with extra encryption. It is exact matching
 	// unless it ends with '/' in which case it will be treated as a prefix.
 	SealWrapStorage []string
+
+	// CacheablesPath are paths that supports getting cached on HTTP level
+	// using ETag, If-Match, If-None-Match headers
+	// If left nil, will use request's uuid as key.
+	CacheablesPaths map[string] cacheutils.HTTPHashFunc
+}
+
+func (p *Paths) CacheablesPathsKeys() []string {
+	var r = make([]string, len(p.CacheablesPaths))
+	for k := range p.CacheablesPaths {
+		r = append(r, k)
+	}
+	return r
 }

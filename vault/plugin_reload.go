@@ -184,6 +184,7 @@ func (c *Core) reloadBackendCommon(ctx context.Context, entry *MountEntry, isAut
 		// Set paths as well
 		paths := backend.SpecialPaths()
 		if paths != nil {
+			re.cachedPaths.Store(pathsToRadix(paths.CacheablesPathsKeys()))
 			re.rootPaths.Store(pathsToRadix(paths.Root))
 			re.loginPaths.Store(pathsToRadix(paths.Unauthenticated))
 		}

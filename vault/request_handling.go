@@ -661,6 +661,11 @@ func (c *Core) handleRequest(ctx context.Context, req *logical.Request) (retResp
 		}
 	}
 
+	// Handle Cached endpoints
+	if resp, routeErr, ok :=  c.handleCacheRequest(ctx, req); ok {
+		return resp, nil, routeErr
+	}
+
 	// Route the request
 	resp, routeErr := c.router.Route(ctx, req)
 	// If we're replicating and we get a read-only error from a backend, need to forward to primary

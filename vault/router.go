@@ -55,6 +55,7 @@ type routeEntry struct {
 	storageView   logical.Storage
 	storagePrefix string
 	rootPaths     atomic.Value
+	cachedPaths   atomic.Value
 	loginPaths    atomic.Value
 	l             sync.RWMutex
 }
@@ -127,6 +128,7 @@ func (r *Router) Mount(backend logical.Backend, prefix string, mountEntry *Mount
 		storagePrefix: storageView.Prefix(),
 		storageView:   storageView,
 	}
+	re.cachedPaths.Store(pathsToRadix(paths.CacheablesPathsKeys()))
 	re.rootPaths.Store(pathsToRadix(paths.Root))
 	re.loginPaths.Store(pathsToRadix(paths.Unauthenticated))
 
