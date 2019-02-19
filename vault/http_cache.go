@@ -4,12 +4,12 @@ import (
 	"context"
 	"net/http"
 	"strings"
-	"time"
-
 	"github.com/armon/go-radix"
 	"github.com/hashicorp/vault/helper/cacheutils"
 	"github.com/hashicorp/vault/helper/namespace"
 	"github.com/hashicorp/vault/logical"
+	"github.com/hashicorp/vault/logical/framework"
+	"fmt"
 )
 
 // CachePath checks if the given path support caching
@@ -47,31 +47,64 @@ func (r *Router) CachePath(ctx context.Context, path string) (bool, cacheutils.H
 			hashFunc = f
 		}
 	}
-
 	// Handle the prefix match case
 	if prefixMatch {
 		return strings.HasPrefix(remain, match), hashFunc
 	}
-
 	// Handle the exact match case
 	return match == remain, hashFunc
+}
+
+func (s *SystemBackend) handleCacheRead(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error){
+	pathRaw := d.Get("path")
+	entryPath, ok := pathRaw.(string)
+	if !ok {
+		return nil, fmt.Errorf("path can't be converted into string")
+	}
+	if entryPath == "" {
+		return nil, fmt.Errorf("path can't be empty")
+	}
+	ce, err := cacheutils.ReadCacheEntry(ctx, s.Core.PhysicalAccess(), entryPath)
+	if err != nil {
+		return nil, err
+	}
+	return &logical.Response{
+		Data: map[string]interface{}{
+			"etag": ce.Key,
+		},
+	}, nil
 }
 
 func (c *Core) handleCacheRequest(ctx context.Context, req *logical.Request) (*logical.Response, bool, error) {
 	handleCache, hashFunc := c.router.CachePath(ctx, req.Path)
 
 	if !handleCache {
-		return nil, false, nil
+		return nil, true, nil
 	}
-	ce := &cacheutils.CacheEntry{Key: hashFunc(req), Date: time.Now()}
 
-	if req.Operation == logical.DeleteOperation || req.Operation == logical.CreateOperation {
-		return nil, false, nil
+	physAccess := c.PhysicalAccess()
+
+	storedCacheEntry, err := cacheutils.ReadCacheEntry(ctx, physAccess, req.Path)
+
+	if err != nil {
+		return nil, true, err
 	}
-	shouldContinue, valid, err := cacheutils.CheckPreconditionalHeaders(req, ce, false)
+
+	if storedCacheEntry != nil || req.Operation == logical.CreateOperation {
+		 cacheutils.WriteCacheEntry(ctx, physAccess, req.Path, &cacheutils.CacheEntry{Key: hashFunc(req)})
+		 return nil, true, nil
+	}
+
+	if req.Operation == logical.DeleteOperation {
+		cacheutils.DeleteCacheEntry(ctx, physAccess, req.Path)
+		return nil, true, nil
+	}
+
+	shouldContinue, valid, err := cacheutils.CheckPreconditionalHeaders(req, storedCacheEntry, false)
 	if err != nil || shouldContinue {
 		return nil, shouldContinue, err
 	}
+
 	httpRespCode := http.StatusPreconditionFailed
 	if valid {
 		httpRespCode = http.StatusNotModified
@@ -81,5 +114,4 @@ func (c *Core) handleCacheRequest(ctx context.Context, req *logical.Request) (*l
 		Data: map[string]interface{}{
 			logical.HTTPStatusCode: httpRespCode,
 		}}, false, nil
-
 }

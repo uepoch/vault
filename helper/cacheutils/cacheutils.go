@@ -3,8 +3,13 @@ package cacheutils
 import (
 	"net/http"
 	"time"
+	"context"
 
 	"github.com/hashicorp/vault/logical"
+	"github.com/hashicorp/vault/physical"
+	"github.com/hashicorp/vault/helper/namespace"
+	"fmt"
+	"path"
 )
 
 const (
@@ -58,6 +63,42 @@ func checkTimeInHeader(headerMap map[string][]string, name string, value time.Ti
 	return ok, false, nil
 }
 
+func ReadCacheEntry(ctx context.Context, p *physical.PhysicalAccess, entryPath string) (*CacheEntry, error){
+	ns, err := namespace.FromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("can't determine namespace from context: %s", err.Error())
+	}
+
+	adjustedPath := path.Join("cache/", ns.Path, entryPath)
+
+	pe, err := p.Get(ctx, adjustedPath)
+	if err != nil {
+		return nil, err
+	}
+	return &CacheEntry{Key: string(pe.Value)}, nil
+}
+
+func DeleteCacheEntry(ctx context.Context, p *physical.PhysicalAccess, entryPath string) error{
+	ns, err := namespace.FromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("can't determine namespace from context: %s", err.Error())
+	}
+
+	adjustedPath := path.Join("cache/", ns.Path, entryPath)
+
+	return p.Delete(ctx, adjustedPath)
+}
+
+func WriteCacheEntry(ctx context.Context, p *physical.PhysicalAccess, entryPath string, ce *CacheEntry) error{
+	ns, err := namespace.FromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("can't determine namespace from context: %s", err.Error())
+	}
+	adjustedPath := path.Join("cache/", ns.Path, entryPath)
+
+	return p.Put(ctx, &physical.Entry{Key:adjustedPath, Value:[]byte(ce.Key)})
+}
+
 // https://tools.ietf.org/html/rfc7232#section-6 Precedence
 func CheckPreconditionalHeaders(req *logical.Request, entry *CacheEntry, checkTimeHeaders bool) (shouldPass, ok bool, err error) {
 	isReadReq := req.Operation == logical.ReadOperation || req.Operation == logical.ListOperation
@@ -102,6 +143,13 @@ func CheckPreconditionalHeaders(req *logical.Request, entry *CacheEntry, checkTi
 
 	if checkTimeHeaders {
 		IfModifiedSinceFound, IfModifiedSinceValid, err := checkTimeInHeader(req.Headers, IfModifiedSinceHeader, entry.Date, false)
+		// 4.    When the method is GET or HEAD, If-None-Match is not present, and
+		//       If-Modified-Since is present, evaluate the If-Modified-Since
+		//       precondition:
+		//
+		//       *  if true, continue to step 5
+		//
+		//       *  if false, respond 304 (Not Modified)
 		if (err != nil) || (!IfNoneMatchFound && IfModifiedSinceFound && !IfModifiedSinceValid && isReadReq) {
 			return false, true, err
 		}

@@ -1528,3 +1528,25 @@ func (b *SystemBackend) mountPaths() []*framework.Path {
 		},
 	}
 }
+
+func (b *SystemBackend) cachePath() *framework.Path {
+	return &framework.Path{
+			Pattern: "cache/(?P<path>.+?)",
+
+			Fields: map[string]*framework.FieldSchema{
+				"path": &framework.FieldSchema{
+					Type:        framework.TypeString,
+					Description: strings.TrimSpace(sysHelp["mount_path"][0]),
+				},
+			},
+
+			Callbacks: map[logical.Operation]framework.OperationFunc{
+				logical.ReadOperation:   b.handleCacheRead,
+				logical.ListOperation:   b.handleCacheList,
+				logical.UpdateOperation: b.handleCacheWrite,
+			},
+
+			HelpSynopsis:    strings.TrimSpace(sysHelp["cache"][0]),
+			HelpDescription: strings.TrimSpace(sysHelp["cache"][1]),
+	}
+}
