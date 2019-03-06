@@ -106,6 +106,7 @@ func NewSystemBackend(core *Core, logger log.Logger) *SystemBackend {
 			},
 
 			Unauthenticated: []string{
+				"metrics",
 				"wrapping/lookup",
 				"wrapping/pubkey",
 				"replication/status",
